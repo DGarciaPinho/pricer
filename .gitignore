@@ -1,0 +1,4 @@
+build/
+pricer
+pricer_gui
+*.o
