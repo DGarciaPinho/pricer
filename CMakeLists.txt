@@ -12,25 +12,38 @@ endif()
 add_executable(pricer main.cpp)
 
 # ---------- GUI (Dear ImGui + GLFW + OpenGL3) ----------
-find_package(OpenGL REQUIRED)
-find_package(glfw3 REQUIRED)
+option(PRICER_BUILD_GUI "Compila a interface gráfica" ON)
 
-set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/vendor/imgui)
+if(PRICER_BUILD_GUI)
+    find_package(OpenGL REQUIRED)
+    find_package(glfw3 REQUIRED)
 
-add_executable(pricer_gui
-    gui_main.cpp
-    ${IMGUI_DIR}/imgui.cpp
-    ${IMGUI_DIR}/imgui_draw.cpp
-    ${IMGUI_DIR}/imgui_tables.cpp
-    ${IMGUI_DIR}/imgui_widgets.cpp
-    ${IMGUI_DIR}/imgui_demo.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
-    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
-)
+    set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/vendor/imgui)
 
-target_include_directories(pricer_gui PRIVATE
-    ${IMGUI_DIR}
-    ${IMGUI_DIR}/backends
-)
+    add_executable(pricer_gui
+        gui_main.cpp
+        ${IMGUI_DIR}/imgui.cpp
+        ${IMGUI_DIR}/imgui_draw.cpp
+        ${IMGUI_DIR}/imgui_tables.cpp
+        ${IMGUI_DIR}/imgui_widgets.cpp
+        ${IMGUI_DIR}/imgui_demo.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+    )
 
-target_link_libraries(pricer_gui PRIVATE glfw OpenGL::GL)
+    target_include_directories(pricer_gui PRIVATE
+        ${IMGUI_DIR}
+        ${IMGUI_DIR}/backends
+    )
+
+    target_link_libraries(pricer_gui PRIVATE glfw OpenGL::GL)
+endif()
+
+# ---------- Testes ----------
+include(CTest)
+
+if(BUILD_TESTING)
+    add_executable(pricer_tests tests/pricer_tests.cpp)
+    target_include_directories(pricer_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    add_test(NAME pricer_tests COMMAND pricer_tests)
+endif()

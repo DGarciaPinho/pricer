@@ -2,7 +2,10 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <optional>
 #include <random>
+#include <stdexcept>
 #include <vector>
 
 struct OptionParams {
@@ -13,6 +16,17 @@ struct OptionParams {
     double T;      // tempo até vencimento (anos)
 };
 
+inline void validateOptionParams(const OptionParams& p) {
+    if (!std::isfinite(p.S) || !std::isfinite(p.K) || !std::isfinite(p.r) ||
+        !std::isfinite(p.sigma) || !std::isfinite(p.T)) {
+        throw std::invalid_argument("os parâmetros da opção devem ser finitos");
+    }
+    if (p.S <= 0.0) throw std::invalid_argument("S deve ser positivo");
+    if (p.K <= 0.0) throw std::invalid_argument("K deve ser positivo");
+    if (p.sigma <= 0.0) throw std::invalid_argument("sigma deve ser positivo");
+    if (p.T <= 0.0) throw std::invalid_argument("T deve ser positivo");
+}
+
 // ---------- Black-Scholes ----------
 
 inline double normCDF(double x) {
@@ -20,12 +34,14 @@ inline double normCDF(double x) {
 }
 
 inline double blackScholesCall(const OptionParams& p) {
+    validateOptionParams(p);
     double d1 = (log(p.S / p.K) + (p.r + p.sigma * p.sigma / 2.0) * p.T) / (p.sigma * sqrt(p.T));
     double d2 = d1 - p.sigma * sqrt(p.T);
     return p.S * normCDF(d1) - p.K * exp(-p.r * p.T) * normCDF(d2);
 }
 
 inline double blackScholesPut(const OptionParams& p) {
+    validateOptionParams(p);
     double d1 = (log(p.S / p.K) + (p.r + p.sigma * p.sigma / 2.0) * p.T) / (p.sigma * sqrt(p.T));
     double d2 = d1 - p.sigma * sqrt(p.T);
     return p.K * exp(-p.r * p.T) * normCDF(-d2) - p.S * normCDF(-d1);
@@ -33,8 +49,14 @@ inline double blackScholesPut(const OptionParams& p) {
 
 // ---------- Monte Carlo ----------
 
-inline double monteCarloCall(const OptionParams& p, int numSimulations) {
-    std::mt19937 gen(std::random_device{}());
+inline double monteCarloCall(const OptionParams& p, int numSimulations,
+                             std::optional<std::uint32_t> seed = std::nullopt) {
+    validateOptionParams(p);
+    if (numSimulations <= 0) {
+        throw std::invalid_argument("o número de simulações deve ser positivo");
+    }
+
+    std::mt19937 gen(seed ? *seed : std::random_device{}());
     std::normal_distribution<double> normal(0.0, 1.0);
 
     double payoffSum = 0.0;
@@ -47,8 +69,14 @@ inline double monteCarloCall(const OptionParams& p, int numSimulations) {
     return exp(-p.r * p.T) * meanPayoff;
 }
 
-inline double monteCarloPut(const OptionParams& p, int numSimulations) {
-    std::mt19937 gen(std::random_device{}());
+inline double monteCarloPut(const OptionParams& p, int numSimulations,
+                            std::optional<std::uint32_t> seed = std::nullopt) {
+    validateOptionParams(p);
+    if (numSimulations <= 0) {
+        throw std::invalid_argument("o número de simulações deve ser positivo");
+    }
+
+    std::mt19937 gen(seed ? *seed : std::random_device{}());
     std::normal_distribution<double> normal(0.0, 1.0);
 
     double payoffSum = 0.0;
@@ -64,6 +92,8 @@ inline double monteCarloPut(const OptionParams& p, int numSimulations) {
 // ---------- Gregas por diferenças finitas (sobre a call) ----------
 
 inline double deltaCall(const OptionParams& p, double h = 1e-4) {
+    validateOptionParams(p);
+    if (h <= 0.0 || p.S <= h) throw std::invalid_argument("h deve estar entre zero e S");
     OptionParams up = p, down = p;
     up.S += h;
     down.S -= h;
@@ -71,6 +101,8 @@ inline double deltaCall(const OptionParams& p, double h = 1e-4) {
 }
 
 inline double gammaCall(const OptionParams& p, double h = 1e-4) {
+    validateOptionParams(p);
+    if (h <= 0.0 || p.S <= h) throw std::invalid_argument("h deve estar entre zero e S");
     OptionParams up = p, down = p;
     up.S += h;
     down.S -= h;
@@ -78,6 +110,8 @@ inline double gammaCall(const OptionParams& p, double h = 1e-4) {
 }
 
 inline double vegaCall(const OptionParams& p, double h = 1e-4) {
+    validateOptionParams(p);
+    if (h <= 0.0 || p.sigma <= h) throw std::invalid_argument("h deve estar entre zero e sigma");
     OptionParams up = p, down = p;
     up.sigma += h;
     down.sigma -= h;
@@ -90,8 +124,16 @@ inline double vegaCall(const OptionParams& p, double h = 1e-4) {
 // É isso que a GUI plota pra mostrar o preço "assentando" perto do valor de
 // Black-Scholes conforme mais simulações entram na média.
 
-inline std::vector<double> monteCarloConvergence(const OptionParams& p, int maxN, int numCheckpoints) {
-    std::mt19937 gen(std::random_device{}());
+inline std::vector<double> monteCarloConvergence(
+    const OptionParams& p, int maxN, int numCheckpoints,
+    std::optional<std::uint32_t> seed = std::nullopt) {
+    validateOptionParams(p);
+    if (maxN <= 0) throw std::invalid_argument("maxN deve ser positivo");
+    if (numCheckpoints <= 0 || numCheckpoints > maxN) {
+        throw std::invalid_argument("numCheckpoints deve estar entre 1 e maxN");
+    }
+
+    std::mt19937 gen(seed ? *seed : std::random_device{}());
     std::normal_distribution<double> normal(0.0, 1.0);
 
     std::vector<double> checkpointPrices;

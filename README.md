@@ -19,8 +19,9 @@ justamente o que o programa mostra ao rodar.
    (ou milhões) de trajetórias do preço final do ativo sob o modelo log-normal do
    Black-Scholes, calcula o payoff de cada uma (`max(S_T - K, 0)` pra call), tira a média e
    desconta a valor presente.
-4. Roda o Monte Carlo com N=10.000 e depois N=1.000.000 e mostra o erro em relação ao
-   Black-Scholes caindo à medida que N cresce — é a prova de que a simulação converge.
+4. Roda o Monte Carlo com N=10.000 e depois N=1.000.000 e compara o erro em relação ao
+   Black-Scholes. Isso permite observar numericamente a tendência de convergência, embora o
+   erro não precise diminuir em toda execução isolada.
 5. Mede o tempo de execução de cada rodada de Monte Carlo com `<chrono>`.
 6. Mostra que aumentar `sigma` ou `T` aumenta o preço da call, que é o comportamento
    esperado (mais volatilidade ou mais tempo = mais valor de opcionalidade).
@@ -78,6 +79,24 @@ cmake --build build -j$(nproc)
 
 (O `-O2` / `Release` não são obrigatórios, mas ajudam bastante na velocidade do Monte Carlo
 com N grande.)
+
+## Testes
+
+Os testes usam apenas CTest e a biblioteca padrão. Escolhi não adicionar um framework de
+testes porque, por enquanto, os casos cabem em um único executável pequeno. Eles cobrem os
+valores de referência de Black-Scholes, paridade put-call, gregas por diferenças finitas,
+Monte Carlo com seed fixa e validação das entradas.
+
+Para compilar e rodar sem precisar das dependências da interface gráfica:
+
+```bash
+cmake -S . -B build -DPRICER_BUILD_GUI=OFF
+cmake --build build
+ctest --test-dir build --output-on-failure
+```
+
+A seed é opcional nas funções de Monte Carlo. O programa e a GUI continuam usando uma seed
+aleatória; os testes passam uma seed fixa para que uma falha possa ser reproduzida.
 
 ## Exemplo de saída
 
@@ -137,9 +156,8 @@ Monte Carlo numa thread separada).
 
 ## O que eu ainda quero fazer
 
-Do documento original (`../projeto-cpp-opcoes-quant.md`), eu escolhi implementar Gregas como
-extensão, e depois adicionei a GUI por conta própria. Outras ideias que ficaram de fora,
-pra eu voltar depois:
+Depois da primeira versão, adicionei as gregas e a interface gráfica. Algumas ideias que
+ficaram de fora, pra eu voltar depois:
 
 - Ler um CSV de preços históricos e calcular volatilidade histórica a partir dele
 - Paralelizar o Monte Carlo com `std::thread` ou OpenMP — o loop de simulações é
